@@ -41,7 +41,7 @@ class Head(nn.Module):
         self.key = nn.Linear(n_embd, head_size, bias=False)
         self.query = nn.Linear(n_embd, head_size, bias=False)
         self.value = nn.Linear(n_embd, head_size, bias=False)
-        self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
+        self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size, device=device)))
 
         self.dropout = nn.Dropout(dropout)
 
@@ -71,7 +71,7 @@ class MultiHeadAttention(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
-        out = torch.cat([h(x) for h in self.heads], dim=-1) # (B, T, F) -> (B, T, [h1, h1, h1, h1, h2, h2, h2, h2, h3, h3 , h3, h3])
+        out = torch.cat([h(x) for h in self.heads], dim=-1)
         out = self.dropout(self.proj(out))
         return out
 
@@ -133,7 +133,7 @@ class ChatbotLanguageModel(nn.Module):
 
         # idx and targets are both (B, T) tensor of integers
         tok_emb = self.token_embedding_table(index) # (B, T, C)
-        pos_emb = self.position_embedding_table(torch.arange(T, device=device)) # (T, C)
+        pos_emb = self.position_embedding_table(torch.arange(T, device=index.device)) # (T, C) - Fixed device
         x = tok_emb + pos_emb # (B,T,C)
         x = self.blocks(x) # (B,T,C)
         x = self.ln_f(x) # (B,T,C)
@@ -166,14 +166,30 @@ class ChatbotLanguageModel(nn.Module):
 
 model = ChatbotLanguageModel(vocab_size)
 print("loading model parameters...")
-with open('model-01.pk1', 'rb') as f:
-    model = pickle.load(f)
-print("loaded successfully!")
-m = model.to(device)
 
+# Try to load from the new checkpoint format first, then fallback to pickle
+try:
+    checkpoint = torch.load('model_checkpoint.pth', map_location=device)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    print("Loaded model from checkpoint!")
+except FileNotFoundError:
+    try:
+        with open('model-01.pk1', 'rb') as f:
+            model = pickle.load(f)
+        print("Loaded model from pickle file!")
+    except FileNotFoundError:
+        print("No saved model found! Please train a model first.")
+        exit()
+
+# Ensure model is on the correct device
+model = model.to(device)
+print("Model loaded successfully!")
 
 while True:
     prompt = input("Prompt:\n")
+    if prompt.lower() == 'quit':
+        break
+    
     context = torch.tensor(encode(prompt), dtype=torch.long, device=device)
-    generated_chars = decode(m.generate(context.unsqueeze(0), max_new_tokens=150)[0].tolist())
+    generated_chars = decode(model.generate(context.unsqueeze(0), max_new_tokens=150)[0].tolist())
     print(f'Completion:\n{generated_chars}')
