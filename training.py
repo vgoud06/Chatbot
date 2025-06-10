@@ -43,14 +43,14 @@ def get_random_chunk(split):
     
             decoded_block = block.decode('utf-8', errors='ignore').replace('\r', '')
     
-            data = torch.tensor(encode(decoded_block), dtype=torch.long)
+            data = torch.tensor(encode(decoded_block), dtype=torch.long, device=device)
         return data
 
 def get_batch(split):
     data = get_random_chunk(split)
-    ix = torch.randint(len(data) - block_size, (batch_size,))
-    x = torch.stack([data[i:i+block_size] for i in ix])
-    y = torch.stack([data[i+1:i+block_size+1] for i in ix])
+    ix = torch.randint(len(data) - block_size, (batch_size,), device=device)
+    x = torch.stack([data[i:i+block_size] for i in ix],)
+    y = torch.stack([data[i+1:i+block_size+1] for i in ix],)
     x, y = x.to(device), y.to(device)
     return x, y
 
@@ -59,7 +59,7 @@ def estimate_loss():
     out = {}
     model.eval()
     for split in ['train', 'val']:
-        losses = torch.zeros(eval_iters)
+        losses = torch.zeros(eval_iters, device=device)
         for k in range(eval_iters):
             X, Y = get_batch(split)
             logits, loss = model(X, Y)
@@ -76,7 +76,7 @@ class Head(nn.Module):
         self.key = nn.Linear(n_embd, head_size, bias=False)
         self.query = nn.Linear(n_embd, head_size, bias=False)
         self.value = nn.Linear(n_embd, head_size, bias=False)
-        self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
+        self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size, device=device)))
 
         self.dropout = nn.Dropout(dropout)
 
@@ -106,7 +106,7 @@ class MultiHeadAttention(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
-        out = torch.cat([h(x) for h in self.heads], dim=-1) # (B, T, F) -> (B, T, [h1, h1, h1, h1, h2, h2, h2, h2, h3, h3 , h3, h3])
+        out = torch.cat([h(x) for h in self.heads], dim=-1, device=device) # (B, T, F) -> (B, T, [h1, h1, h1, h1, h2, h2, h2, h2, h3, h3 , h3, h3])
         out = self.dropout(self.proj(out))
         return out
 
@@ -209,7 +209,7 @@ model = ClassmateLanguageModel(vocab_size)
     
 
 # create a PyTorch optimizer
-optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
+optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, device=device)
 
 for iter in range(max_iters):
     if iter % eval_iters == 0:
