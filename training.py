@@ -243,11 +243,15 @@ optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
 # Load checkpoint if it exists
 start_iter = 0
+last_loss = None
 if os.path.exists(checkpoint_path):
-    start_iter, _ = load_checkpoint(model, optimizer, checkpoint_path)
+    start_iter, last_loss = load_checkpoint(model, optimizer, checkpoint_path)
     start_iter += 1  # Continue from next iteration
 else:
     print("No checkpoint found. Starting from scratch.")
+
+# Initialize loss variable (will be updated in training loop)
+loss = None
 
 # Training loop
 for iter in range(start_iter, max_iters):
@@ -268,10 +272,25 @@ for iter in range(start_iter, max_iters):
     if iter % save_every == 0 and iter > 0:
         save_checkpoint(model, optimizer, iter, loss.item(), checkpoint_path)
 
-print(f"Final loss: {loss.item()}")
+# Handle case where training loop didn't execute (already at max_iters)
+if loss is None:
+    if last_loss is not None:
+        print(f"Training already completed. Last recorded loss: {last_loss:.4f}")
+        # Use the last loss for final save
+        final_loss = last_loss
+    else:
+        # Calculate current loss if we don't have one
+        print("Calculating current loss...")
+        xb, yb = get_batch('train')
+        logits, loss = model.forward(xb, yb)
+        final_loss = loss.item()
+        print(f"Current loss: {final_loss:.4f}")
+else:
+    final_loss = loss.item()
+    print(f"Final loss: {final_loss:.4f}")
 
 # Save final model
-save_checkpoint(model, optimizer, max_iters, loss.item(), checkpoint_path)
+save_checkpoint(model, optimizer, max_iters, final_loss, checkpoint_path)
 print('Final model saved')
 
 # Also save the model in the old pickle format for compatibility
