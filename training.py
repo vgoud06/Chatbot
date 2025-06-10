@@ -10,7 +10,7 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 batch_size = 128
 block_size = 256
-max_iters = 5000
+max_iters = 300
 learning_rate = 3e-4
 eval_iters = 10
 n_embd = 384
@@ -145,7 +145,7 @@ class Block(nn.Module):
         x = self.ln2(x + y)
         return x
         
-class ClassmateLanguageModel(nn.Module):
+class ChatbotLanguageModel(nn.Module):
     def __init__(self, vocab_size):
         super().__init__()
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
@@ -201,7 +201,7 @@ class ClassmateLanguageModel(nn.Module):
             index = torch.cat((index, index_next), dim=1) # (B, T+1)
         return index
 
-model = ClassmateLanguageModel(vocab_size)
+model = ChatbotLanguageModel(vocab_size)
 model = model.to(device)  # Move model to device
 print("loading model parameters...")
 #with open('model-01.pk1', 'rb') as f:
