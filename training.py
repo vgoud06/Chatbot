@@ -4,19 +4,23 @@ from torch.nn import functional as F
 import mmap
 import random
 import pickle
+import os
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
 
 batch_size = 128
 block_size = 256
 max_iters = 5000
 learning_rate = 3e-4
-eval_iters = 25
+eval_iters = 10
 n_embd = 384
 n_head = 8
 n_layer = 8
 dropout = 0.2
+
+# Checkpoint settings
+checkpoint_path = 'model_checkpoint.pth'
+save_every = 500  # Save checkpoint every N iterations
 
 print(device)
 
@@ -69,6 +73,35 @@ def estimate_loss():
     model.train()
     return out
 
+def save_checkpoint(model, optimizer, iteration, loss, path):
+    """Save model checkpoint"""
+    checkpoint = {
+        'iteration': iteration,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'loss': loss,
+        'hyperparameters': {
+            'vocab_size': vocab_size,
+            'n_embd': n_embd,
+            'n_head': n_head,
+            'n_layer': n_layer,
+            'block_size': block_size,
+            'dropout': dropout
+        }
+    }
+    torch.save(checkpoint, path)
+    print(f"Checkpoint saved at iteration {iteration}")
+
+def load_checkpoint(model, optimizer, path):
+    """Load model checkpoint"""
+    checkpoint = torch.load(path, map_location=device)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    iteration = checkpoint['iteration']
+    loss = checkpoint['loss']
+    print(f"Checkpoint loaded from iteration {iteration}, loss: {loss:.4f}")
+    return iteration, loss
+
 class Head(nn.Module):
     """ one head of self-attention """
 
@@ -107,7 +140,7 @@ class MultiHeadAttention(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
-        out = torch.cat([h(x) for h in self.heads], dim=-1)  # Removed device parameter
+        out = torch.cat([h(x) for h in self.heads], dim=-1)
         out = self.dropout(self.proj(out))
         return out
 
@@ -169,7 +202,7 @@ class ChatbotLanguageModel(nn.Module):
 
         # idx and targets are both (B, T) tensor of integers
         tok_emb = self.token_embedding_table(index) # (B, T, C)
-        pos_emb = self.position_embedding_table(torch.arange(T, device=index.device)) # (T, C) - Fixed device
+        pos_emb = self.position_embedding_table(torch.arange(T, device=index.device)) # (T, C)
         x = tok_emb + pos_emb # (B,T,C)
         x = self.blocks(x) # (B,T,C)
         x = self.ln_f(x) # (B,T,C)
@@ -201,18 +234,23 @@ class ChatbotLanguageModel(nn.Module):
             index = torch.cat((index, index_next), dim=1) # (B, T+1)
         return index
 
+# Initialize model
 model = ChatbotLanguageModel(vocab_size)
-model = model.to(device)  # Move model to device
-print("loading model parameters...")
-#with open('model-01.pk1', 'rb') as f:
-#    model = pickle.load(f)
-#print("loaded successfully!")
-    
+model = model.to(device)
 
-# create a PyTorch optimizer
+# Create optimizer
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
-for iter in range(max_iters):
+# Load checkpoint if it exists
+start_iter = 0
+if os.path.exists(checkpoint_path):
+    start_iter, _ = load_checkpoint(model, optimizer, checkpoint_path)
+    start_iter += 1  # Continue from next iteration
+else:
+    print("No checkpoint found. Starting from scratch.")
+
+# Training loop
+for iter in range(start_iter, max_iters):
     if iter % eval_iters == 0:
         losses = estimate_loss()
         print(f"step: {iter}, train loss: {losses['train']:.3f}, val loss: {losses['val']:.3f}")
@@ -225,8 +263,18 @@ for iter in range(max_iters):
     optimizer.zero_grad(set_to_none=True)
     loss.backward()
     optimizer.step()
-print(loss.item())
+    
+    # Save checkpoint periodically
+    if iter % save_every == 0 and iter > 0:
+        save_checkpoint(model, optimizer, iter, loss.item(), checkpoint_path)
 
+print(f"Final loss: {loss.item()}")
+
+# Save final model
+save_checkpoint(model, optimizer, max_iters, loss.item(), checkpoint_path)
+print('Final model saved')
+
+# Also save the model in the old pickle format for compatibility
 with open('model-01.pk1', 'wb') as f:
     pickle.dump(model, f)
-print('model saved')
+print('Model also saved in pickle format')
