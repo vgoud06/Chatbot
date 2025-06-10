@@ -50,8 +50,8 @@ def get_random_chunk(split):
 def get_batch(split):
     data = get_random_chunk(split)
     ix = torch.randint(len(data) - block_size, (batch_size,), device=device)
-    x = torch.stack([data[i:i+block_size] for i in ix], device=device)
-    y = torch.stack([data[i+1:i+block_size+1] for i in ix], device=device)
+    x = torch.stack([data[i:i+block_size] for i in ix])
+    y = torch.stack([data[i+1:i+block_size+1] for i in ix])
     x, y = x.to(device), y.to(device)
     return x, y
 
@@ -107,7 +107,7 @@ class MultiHeadAttention(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
-        out = torch.cat([h(x) for h in self.heads], dim=-1, device=device) # (B, T, F) -> (B, T, [h1, h1, h1, h1, h2, h2, h2, h2, h3, h3 , h3, h3])
+        out = torch.cat([h(x) for h in self.heads], dim=-1)  # Removed device parameter
         out = self.dropout(self.proj(out))
         return out
 
@@ -169,7 +169,7 @@ class ClassmateLanguageModel(nn.Module):
 
         # idx and targets are both (B, T) tensor of integers
         tok_emb = self.token_embedding_table(index) # (B, T, C)
-        pos_emb = self.position_embedding_table(torch.arange(T, device=device)) # (T, C)
+        pos_emb = self.position_embedding_table(torch.arange(T, device=index.device)) # (T, C) - Fixed device
         x = tok_emb + pos_emb # (B,T,C)
         x = self.blocks(x) # (B,T,C)
         x = self.ln_f(x) # (B,T,C)
@@ -202,11 +202,11 @@ class ClassmateLanguageModel(nn.Module):
         return index
 
 model = ClassmateLanguageModel(vocab_size)
-#print("loading model parameters...")
+model = model.to(device)  # Move model to device
+print("loading model parameters...")
 #with open('model-01.pk1', 'rb') as f:
 #    model = pickle.load(f)
 #print("loaded successfully!")
-#m = model.to(device)
     
 
 # create a PyTorch optimizer
