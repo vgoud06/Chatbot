@@ -5,7 +5,8 @@ import mmap
 import random
 import pickle
 
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+#device = 'cuda' if torch.cuda.is_available() else 'cpu'
+device = 'cuda'
 
 batch_size = 128
 block_size = 256
