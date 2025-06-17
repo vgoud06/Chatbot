@@ -5,6 +5,7 @@ import mmap
 import random
 import pickle
 import os
+from torch.amp import autocast, GradScaler
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -289,6 +290,21 @@ if loss is None:
 else:
     final_loss = loss.item()
     print(f"Final loss: {final_loss:.4f}")
+
+scaler = GradScaler(device='cuda')
+
+for iter_num in range(start_iter, max_iters):
+    xb, yb = get_batch('train')
+    optimizer.zero_grad()
+    with autocast():
+        logits, loss = model(xb, yb)  # Your model returns both
+    scaler.scale(loss).backward()
+    scaler.step(optimizer)
+    scaler.update()
+
+    torch.cuda.empty_cache()
+    torch.cuda.ipc_collect()
+
 
 # Save final model
 save_checkpoint(model, optimizer, max_iters, final_loss, checkpoint_path)
