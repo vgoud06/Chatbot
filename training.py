@@ -8,8 +8,8 @@ import os
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-batch_size = 128
-block_size = 256
+batch_size = 32
+block_size = 64
 max_iters = 200000
 learning_rate = 3e-4
 eval_iters = 50
@@ -71,6 +71,7 @@ def estimate_loss():
             losses[k] = loss.item()
         out[split] = losses.mean()
     model.train()
+    torch.cuda.empty_cache()
     return out
 
 def save_checkpoint(model, optimizer, iteration, loss, path):
