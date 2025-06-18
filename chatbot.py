@@ -214,6 +214,19 @@ if not model_loaded:
 model = model.to(device)
 print("Model loaded successfully!")
 
+class Chatbot:
+    def __init__(self):
+        self.model = model
+        self.model.eval()  # Turn off dropout
+        self.device = device
+
+    def get_response(self, prompt):
+        context = torch.tensor(encode(prompt), dtype=torch.long, device=self.device)
+        with torch.no_grad():
+            output = self.model.generate(context.unsqueeze(0), max_new_tokens=150)[0]
+        return decode(output.tolist())
+
+'''
 while True:
     prompt = input("Prompt:\n")
     if prompt.lower() == 'quit':
@@ -222,3 +235,4 @@ while True:
     context = torch.tensor(encode(prompt), dtype=torch.long, device=device)
     generated_chars = decode(model.generate(context.unsqueeze(0), max_new_tokens=150)[0].tolist())
     print(f'Completion:\n{generated_chars}')
+'''
