@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, render_template
-from chatbot import Chatbot
+from chatbot import Chatbot, ChatbotLanguageModel
 from flask_cors import CORS
 
 app = Flask(__name__)
@@ -24,5 +24,5 @@ def chat():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, host='0.0.0.0', port=5000)
 
