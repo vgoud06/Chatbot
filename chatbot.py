@@ -4,7 +4,8 @@ from torch.nn import functional as F
 import mmap
 import random
 import pickle
-
+import os
+import sys
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -167,19 +168,47 @@ class ChatbotLanguageModel(nn.Module):
 model = ChatbotLanguageModel(vocab_size)
 print("loading model parameters...")
 
-# Try to load from the new checkpoint format first, then fallback to pickle
-try:
-    checkpoint = torch.load('model_checkpoint.pth', map_location=device)
-    model.load_state_dict(checkpoint['model_state_dict'])
-    print("Loaded model from checkpoint!")
-except FileNotFoundError:
+# Improved model loading with better error handling
+model_loaded = False
+
+# Try checkpoint format first
+checkpoint_path = 'model_checkpoint.pth'
+if os.path.exists(checkpoint_path):
     try:
-        with open('model-01.pk1', 'rb') as f:
-            model = pickle.load(f)
-        print("Loaded model from pickle file!")
-    except FileNotFoundError:
-        print("No saved model found! Please train a model first.")
-        exit()
+        print(f"Found checkpoint file: {checkpoint_path}")
+        checkpoint = torch.load(checkpoint_path, map_location=device)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        print("✅ Loaded model from checkpoint!")
+        model_loaded = True
+    except Exception as e:
+        print(f"❌ Error loading checkpoint: {e}")
+
+# Try pickle format if checkpoint failed
+if not model_loaded:
+    pickle_path = 'model-01.pk1'
+    if os.path.exists(pickle_path):
+        try:
+            print(f"Found pickle file: {pickle_path}")
+            with open(pickle_path, 'rb') as f:
+                model = pickle.load(f)
+            print("✅ Loaded model from pickle file!")
+            model_loaded = True
+        except Exception as e:
+            print(f"❌ Error loading pickle file: {e}")
+
+# Check if any model was loaded
+if not model_loaded:
+    print("❌ No saved model found!")
+    print("Available files in current directory:")
+    for file in os.listdir('.'):
+        if file.endswith(('.pth', '.pk1', '.pkl')):
+            print(f"  - {file}")
+    
+    print("\nExpected files:")
+    print("  - model_checkpoint.pth (PyTorch checkpoint)")
+    print("  - model-01.pk1 (Pickle file)")
+    print("\nPlease train a model first or check your file paths.")
+    sys.exit(1)
 
 # Ensure model is on the correct device
 model = model.to(device)
