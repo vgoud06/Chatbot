@@ -8,7 +8,7 @@ import io
 app = Flask(__name__)
 CORS(app)
 chatbot = Chatbot()
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/Users/your-username/Downloads/chatbot-463417-0f7060c352e.json"
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/Users/vivekgoud/Downloads/chatbot-463417-0f7060c352e.json"
 
 @app.route("/")
 def home():
