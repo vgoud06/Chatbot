@@ -29,27 +29,29 @@ def chat():
 
 @app.route("/upload_audio", methods=["POST"])
 def upload_audio():
-    if 'file' not in request.files:
-        return jsonify({"error": "No file"}), 400
+    try:
+        if 'file' not in request.files:
+            return jsonify({"error": "No file uploaded"}), 400
 
-    audio_file = request.files['file']
-    content = audio_file.read()
+        audio_file = request.files['file']
+        content = audio_file.read()
 
-    client = speech.SpeechClient()
-    audio = speech.RecognitionAudio(content=content)
-    config = speech.RecognitionConfig(
-        encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
-        sample_rate_hertz=44100,
-        language_code="en-US",
-    )
+        client = speech.SpeechClient()
+        audio = speech.RecognitionAudio(content=content)
+        config = speech.RecognitionConfig(
+            encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
+            sample_rate_hertz=44100,
+            language_code="en-US",
+        )
 
-    response = client.recognize(config=config, audio=audio)
+        response = client.recognize(config=config, audio=audio)
+        transcript = " ".join([r.alternatives[0].transcript for r in response.results])
+        return jsonify({"transcript": transcript})
 
-    transcript = ""
-    for result in response.results:
-        transcript += result.alternatives[0].transcript
+    except Exception as e:
+        print("❌ Error in /upload_audio:", e)
+        return jsonify({"error": str(e)}), 500
 
-    return jsonify({"transcript": transcript})
 
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0', port=5000)
