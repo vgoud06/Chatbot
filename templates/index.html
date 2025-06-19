@@ -16,8 +16,9 @@
   <div class="text-center mb-4">
     <input type="text" id="messageInput" placeholder="Enter your message" class="bg-gray-800 text-white border border-gray-600 px-3 py-2 rounded placeholder-gray-400">
     <button onclick="sendMessage()" id="sendButton" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">Send</button>
-    <button onclick="toggleVoiceRecording()" id="voiceButton" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded mr-2">🎤 Speak</button>
-    <button onclick="toggleAutoSpeak()" id="autoSpeakButton" class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded">🔊 Auto-speak</button>
+    <button onclick="startRecording()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">Start Recording</button>
+    <button onclick="stopRecording()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">Stop & Upload</button>
+    <audio id="audioPlayback" controls></audio>
   </div>
 
   <div id="loadingSpinner" class="hidden text-center mb-4">
@@ -29,98 +30,40 @@
 
   <script>
 
-    let recognition = null;
-    let isRecording = false;
-    let autoSpeak = false;
-    
-    function initSpeechRecognition() {
-      if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        recognition = new SpeechRecognition();
-        recognition.continuous = false;
-        recognition.interimResults = false;
-        recognition.lang = 'en-US';
-        
-        recognition.onstart = function() {
-          isRecording = true;
-          document.getElementById('voiceButton').textContent = '🛑 Stop';
-          document.getElementById('voiceButton').className = 'bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded mr-2';
-        };
-        
-        recognition.onresult = function(event) {
-          const transcript = event.results[0][0].transcript;
-          document.getElementById('messageInput').value = transcript;
-          sendMessage();
-        };
-        
-        recognition.onend = function() {
-          isRecording = false;
-          document.getElementById('voiceButton').textContent = '🎤 Speak';
-          document.getElementById('voiceButton').className = 'bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded mr-2';
-        };
-        
-        recognition.onerror = function(event) {
-          console.error('Speech recognition error:', event.error);
-          isRecording = false;
-          document.getElementById('voiceButton').textContent = '🎤 Speak';
-          document.getElementById('voiceButton').className = 'bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded mr-2';
-        };
-      } else {
-        console.warn('Speech recognition not supported in this browser');
-        document.getElementById('voiceButton').disabled = true;
-        document.getElementById('voiceButton').textContent = '❌ Not supported';
-      }
+    let mediaRecorder;
+    let audioChunks = [];
+
+    function startRecording() {
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+          mediaRecorder = new MediaRecorder(stream);
+          mediaRecorder.start();
+          audioChunks = [];
+
+          mediaRecorder.ondataavailable = event => {
+            audioChunks.push(event.data);
+          };
+        });
     }
-    
-    function toggleVoiceRecording() {
-      if (!recognition) {
-        alert('Speech recognition not supported in this browser');
-        return;
-      }
-      
-      if (isRecording) {
-        recognition.stop();
-      } else {
-        recognition.start();
-      }
-    }
-    
-    function toggleAutoSpeak() {
-      autoSpeak = !autoSpeak;
-      const button = document.getElementById('autoSpeakButton');
-      if (autoSpeak) {
-        button.textContent = '🔇 Auto-speak ON';
-        button.className = 'bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded';
-      } else {
-        button.textContent = '🔊 Auto-speak';
-        button.className = 'bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded';
-      }
-    }
-    
-    function speakText(text) {
-      if ('speechSynthesis' in window) {
-        
-        speechSynthesis.cancel();
-        
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 0.9;
-        utterance.pitch = 1;
-        utterance.volume = 1;
-        
-        const voices = speechSynthesis.getVoices();
-        const preferredVoice = voices.find(voice => 
-          voice.name.includes('Google') || 
-          voice.name.includes('Microsoft') ||
-          voice.lang.startsWith('en')
-        );
-        if (preferredVoice) {
-          utterance.voice = preferredVoice;
-        }
-        
-        speechSynthesis.speak(utterance);
-      } else {
-        console.warn('Text-to-speech not supported in this browser');
-      }
+
+    function stopRecording() {
+      mediaRecorder.stop();
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+        const audioURL = URL.createObjectURL(audioBlob);
+        document.getElementById('audioPlayback').src = audioURL;
+
+        const formData = new FormData();
+        formData.append('file', audioBlob, 'speech.wav');
+
+        fetch('/upload_audio', {
+          method: 'POST',
+          body: formData
+        })
+        .then(res => res.json())
+        .then(data => alert('Transcript: ' + data.transcript))
+        .catch(err => console.error('Error:', err));
+      };
     }
     
     function showLoading() {
