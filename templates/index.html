@@ -17,12 +17,33 @@
     <input type="text" id="messageInput" placeholder="Enter your message" class="bg-gray-800 text-white border border-gray-600 px-3 py-2 rounded placeholder-gray-400">
     <button onclick="sendMessage()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">Send</button>
   </div>
+
+  <div id="loadingSpinner" class="hidden text-center mb-4">
+    <div class="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+    <p class="text-gray-400 mt-2">AI is thinking...</p>
+  </div>
+
   <div id="response" class="mt-6 p-4 bg-gray-800 border border-gray-600 rounded-lg min-h-[200px]"></div>
 
   <script>
+    
+    function showLoading() {
+      document.getElementById('loadingSpinner').classList.remove('hidden');
+      document.getElementById('sendButton').disabled = true;
+      document.getElementById('sendButton').textContent = 'Sending...';
+    }
+    
+    function hideLoading() {
+      document.getElementById('loadingSpinner').classList.add('hidden');
+      document.getElementById('sendButton').disabled = false;
+      document.getElementById('sendButton').textContent = 'Send';
+    }
+
     async function sendMessage() {
     const message = document.getElementById("messageInput").value;
     const responseDiv = document.getElementById("response");
+
+    showLoading();
 
     const res = await fetch("/chat", {
       method: "POST",
@@ -36,6 +57,10 @@
     } else {
       responseDiv.textContent = "Error: " + (data.error || "Unknown error");
     }
+
+    hideLoading();
+
+    message.value = '';
   }
   </script>
 </body>
