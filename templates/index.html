@@ -40,28 +40,35 @@
     }
 
     async function sendMessage() {
-    const message = document.getElementById("messageInput").value;
-    const responseDiv = document.getElementById("response");
+      const input = document.getElementById("messageInput");
+      const message = input.value;
+      const responseDiv = document.getElementById("response");
 
-    showLoading();
+      // Clear input immediately
+      input.value = '';
 
-    const res = await fetch("/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: message })
-    });
+      showLoading();
 
-    const data = await res.json();
-    if (data.response) {
-      responseDiv.textContent = "Bot: " + data.response;
-    } else {
-      responseDiv.textContent = "Error: " + (data.error || "Unknown error");
-    }
+      try {
+        const res = await fetch("/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: message })
+        });
 
-    hideLoading();
-
-    message.value = '';
-  }
+        const data = await res.json();
+        if (data.response) {
+            responseDiv.textContent = "Bot: " + data.response;
+        } else {
+            responseDiv.textContent = "Error: " + (data.error || "Unknown error");
+        }
+      } catch (error) {
+        responseDiv.textContent = "Error: Network error or server unavailable";
+        console.error('Fetch error:', error);
+      } finally {
+        hideLoading();
+      }
+}
   </script>
 </body>
 </html>
