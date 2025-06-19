@@ -10,6 +10,7 @@ CORS(app)
 chatbot = Chatbot()
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "/Users/vivekgoud/Downloads/chatbot-463417-0f7060c3e52e.json"
 
+
 @app.route("/")
 def home():
     return render_template("index.html")
