@@ -12,10 +12,10 @@
 
 </head>
 <body class="bg-gray-900 text-white">
-  <h1>Chat with AI</h1>
-  <input type="text" id="messageInput" placeholder="Enter your message">
-  <button onclick="sendMessage()">Send</button>
-  <div id="response"></div>
+  <h1 class="text-3xl font-bold mb-6 text-center">Chat with AI</h1>
+  <input type="text" id="messageInput" placeholder="Enter your message" class="bg-gray-800 text-white border border-gray-600 px-3 py-2 rounded placeholder-gray-400">
+  <button onclick="sendMessage()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">Send</button>
+  <div id="response" class="mt-6 p-4 bg-gray-800 border border-gray-600 rounded-lg min-h-[200px]"></div>
 
   <script>
     async function sendMessage() {
