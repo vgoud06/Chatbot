@@ -40,9 +40,9 @@
     }
 
     async function sendMessage() {
-      const input = document.getElementById("messageInput");
-      const message = input.value;
-      const responseDiv = document.getElementById("response");
+      let input = document.getElementById("messageInput");
+      let message = input.value;
+      let responseDiv = document.getElementById("response");
 
       // Clear input immediately
       input.value = '';
@@ -68,7 +68,7 @@
       } finally {
         hideLoading();
       }
-}
+    }
   </script>
 </body>
 </html>
